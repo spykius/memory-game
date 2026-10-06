@@ -8,6 +8,14 @@
   --color-board-background: rgba(255, 255, 255, 0.24);
   --color-board-shadow: rgba(62, 67, 55, 0.09);
 
+  --color-card-border: rgba(239, 224, 196, 0.15);
+  --color-card-open: #fbf8f1;
+  --color-card-matched: #dfe8dd;
+  --color-card-open-border: rgba(163, 95, 63, 0.22);
+  --color-card-hover-shadow: rgba(35, 55, 46, 0.2);
+
+  --card-transition-duration: 0.3s;
+
   --font-primary: 'Manrope', sans-serif;
   --font-secondary: 'DM Serif Display', serif;
 }
@@ -198,4 +206,79 @@ img {
 
 .stats__list div + div {
   border-left: 0.0625rem solid var(--color-hover);
+}
+
+/*========== board ==========*/
+.board__box {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(0.5rem, 1.2vw, 0.875rem);
+  padding: clamp(0.625rem, 1.5vw, 1.0625rem);
+  border: 0.0625rem solid var(--color-board-border);
+  border-radius: 0.3125rem;
+  background: var(--color-board-background);
+  box-shadow: 0 1.625rem 4.375rem var(--color-board-shadow);
+}
+
+.card {
+  display: grid;
+  place-items: center;
+  font: inherit;
+  color: inherit;
+  border-radius: 0.1875rem;
+  aspect-ratio: 0.78;
+  padding: 0;
+  background: var(--color-secondary);
+  cursor: pointer;
+  border: 0.0625rem solid var(--color-card-border);
+  transition:
+    background-color var(--card-transition-duration) ease,
+    border-color var(--card-transition-duration) ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.card:focus-visible {
+  outline: 0.125rem solid var(--color-hover);
+  outline-offset: 0.125rem;
+}
+
+.card__inner {
+  display: grid;
+  place-items: center;
+  width: 50%;
+  height: 50%;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--card-transition-duration) ease,
+    visibility 0s linear var(--card-transition-duration);
+}
+
+.card__icon {
+  width: 100%;
+  height: 100%;
+}
+
+.card--open {
+  background-color: var(--color-card-open);
+  border-color: var(--color-card-open-border);
+}
+
+.card--matched {
+  background-color: var(--color-card-matched);
+  border-color: var(--color-card-open-border);
+}
+
+.card--open .card__inner {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity var(--card-transition-duration) ease,
+    visibility 0s linear;
+}
+
+.card:not(.card--open):hover {
+  transform: translateY(-0.25rem);
+  box-shadow: 0 0.625rem 1.375rem var(--color-card-hover-shadow);
 }

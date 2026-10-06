@@ -1,4 +1,14 @@
-let newGameButton;
+const SPRITE_PATH = './assets/svg/sprite.svg';
+const cardsData = [
+  { id: 'bash', name: 'Bash' },
+  { id: 'nodejs', name: 'Node.js' },
+  { id: 'figma', name: 'Figma' },
+  { id: 'javascript', name: 'JavaScript' },
+  { id: 'react', name: 'React' },
+  { id: 'vscode', name: 'VS Code' },
+  { id: 'css3', name: 'CSS3' },
+  { id: 'html5', name: 'HTML5' },
+];
 
 function createCustomElement(tagName, { text = '', classes = [], attrs = {} } = {}) {
   const element = document.createElement(tagName);
@@ -115,11 +125,68 @@ function createStats() {
   return { element: statsSection, values: { moves, time, best } };
 }
 
+function createCardSVG(iconId) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('card__icon');
+
+  const use = document.createElementNS(svgNS, 'use');
+  use.setAttribute('href', `${SPRITE_PATH}#${iconId}`);
+
+  svg.append(use);
+
+  return svg;
+}
+
+function createCard(data, index) {
+  const cardButton = createCustomElement('button', {
+    classes: ['board__card', 'card'],
+    attrs: {
+      type: 'button',
+      'data-card-id': data.id,
+      'aria-label': `Hidden card ${index + 1}`,
+    },
+  });
+
+  const cardInner = createCustomElement('span', {
+    classes: ['card__inner'],
+  });
+
+  const svg = createCardSVG(data.id);
+
+  cardInner.append(svg);
+  cardButton.append(cardInner);
+
+  return cardButton;
+}
+
+function createBoard() {
+  const boardSection = createCustomElement('section', {
+    classes: ['board'],
+    attrs: {
+      'aria-label': 'memory card board',
+    },
+  });
+  const boardContainer = createCustomElement('div', {
+    classes: ['board__container', 'container'],
+  });
+  const boardBox = createCustomElement('div', {
+    classes: ['board__box'],
+  });
+
+  boardContainer.append(boardBox);
+  boardSection.append(boardContainer);
+
+  return { element: boardSection, values: { boardBox } };
+}
+
 function createMain() {
   const main = createCustomElement('main', { classes: ['page__main'] });
   const stats = createStats();
-  main.append(stats.element);
-  return { element: main, values: stats.values };
+  const board = createBoard();
+  main.append(stats.element, board.element);
+  return { element: main, values: { ...stats.values, ...board.values } };
 }
 
 function generatePage() {
@@ -132,3 +199,27 @@ function generatePage() {
 }
 
 const app = generatePage();
+
+function createCardsForBoard() {
+  return cardsData.flatMap((item) => [{ ...item }, { ...item }]);
+}
+
+function shuffle(array) {
+  const copy = [...array];
+  for (let currentIndex = copy.length - 1; currentIndex > 0; currentIndex--) {
+    const randomIndex = Math.floor(Math.random() * (currentIndex + 1));
+
+    [copy[currentIndex], copy[randomIndex]] = [copy[randomIndex], copy[currentIndex]];
+  }
+
+  return copy;
+}
+
+const deck = shuffle(createCardsForBoard());
+
+function renderBoard(boardElement, deck) {
+  const cards = deck.map((item, index) => createCard(item, index));
+  boardElement.replaceChildren(...cards);
+}
+
+renderBoard(app.boardBox, deck);

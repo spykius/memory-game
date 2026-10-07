@@ -1,4 +1,5 @@
 const SPRITE_PATH = './assets/svg/sprite.svg';
+const TIMER_DELAY = 1000;
 const cardsData = [
   { id: 'bash', name: 'Bash' },
   { id: 'nodejs', name: 'Node.js' },
@@ -145,6 +146,7 @@ function createCard(data, index) {
     attrs: {
       type: 'button',
       'data-card-id': data.id,
+      'data-card-index': index,
       'aria-label': `Hidden card ${index + 1}`,
     },
   });
@@ -198,8 +200,6 @@ function generatePage() {
   return { ...main.values };
 }
 
-const app = generatePage();
-
 function createCardsForBoard() {
   return cardsData.flatMap((item) => [{ ...item }, { ...item }]);
 }
@@ -215,11 +215,87 @@ function shuffle(array) {
   return copy;
 }
 
-const deck = shuffle(createCardsForBoard());
-
 function renderBoard(boardElement, deck) {
-  const cards = deck.map((item, index) => createCard(item, index));
-  boardElement.replaceChildren(...cards);
+  const cardElements = deck.map((item, index) => createCard(item, index));
+  boardElement.replaceChildren(...cardElements);
 }
 
-renderBoard(app.boardBox, deck);
+function startGame() {
+  const deck = shuffle(createCardsForBoard());
+  clearTimeout(gameState.timerId);
+  gameState = createInitialState();
+  app.moves.textContent = '00';
+  renderBoard(app.boardBox, deck);
+}
+
+function createInitialState() {
+  return {
+    firstCard: null,
+    secondCard: null,
+    isBoardLocked: false,
+    pairsFound: 0,
+    movesMade: 0,
+    timerId: null,
+  };
+}
+
+function openCard(card) {
+  card.classList.add('card--open');
+  card.setAttribute('aria-label', cardsData.find((item) => item.id === card.dataset.cardId).name);
+}
+
+function closeCard(card) {
+  card.classList.remove('card--open');
+  card.setAttribute('aria-label', `Hidden card ${Number(card.dataset.cardIndex) + 1}`);
+}
+
+function handleMatch() {
+  gameState.firstCard.classList.add('card--matched');
+  gameState.secondCard.classList.add('card--matched');
+  gameState.firstCard = null;
+  gameState.secondCard = null;
+  gameState.pairsFound++;
+  if (gameState.pairsFound === cardsData.length) startGame(app);
+}
+
+function handleMismatch() {
+  gameState.isBoardLocked = true;
+  gameState.timerId = setTimeout(() => {
+    closeCard(gameState.firstCard);
+    closeCard(gameState.secondCard);
+    gameState.firstCard = null;
+    gameState.secondCard = null;
+    gameState.isBoardLocked = false;
+    gameState.timerId = null;
+  }, TIMER_DELAY);
+}
+
+function handleBoardClick(e) {
+  const card = e.target.closest('.card');
+  if (!card) return;
+  if (card.classList.contains('card--open') || gameState.isBoardLocked) return;
+  openCard(card);
+
+  if (!gameState.firstCard) {
+    gameState.firstCard = card;
+    return;
+  }
+
+  gameState.secondCard = card;
+  gameState.movesMade++;
+  app.moves.textContent = gameState.movesMade.toString().padStart(2, '0');
+
+  if (gameState.firstCard.dataset.cardId === gameState.secondCard.dataset.cardId) {
+    handleMatch();
+  } else {
+    handleMismatch();
+  }
+}
+
+const app = generatePage();
+
+let gameState = createInitialState();
+
+app.boardBox.addEventListener('click', handleBoardClick);
+
+startGame();

@@ -89,7 +89,7 @@ function createStats() {
 
   const statsData = [
     { title: 'Moves', value: '00' },
-    { title: 'Time', value: '00:00' },
+    { title: 'Pairs', value: `0/${cardsData.length}` },
     { title: 'Best', value: '—' },
   ];
 
@@ -119,12 +119,12 @@ function createStats() {
     }),
   );
 
-  const [moves, time, best] = statsValues;
+  const [moves, pairs, best] = statsValues;
 
   statsContainer.append(statsList);
   statsSection.append(statsContainer);
 
-  return { element: statsSection, values: { moves, time, best } };
+  return { element: statsSection, values: { moves, pairs, best } };
 }
 
 function createCardSVG(iconId) {
@@ -227,7 +227,8 @@ function startGame() {
   const deck = shuffle(createCardsForBoard());
   clearTimeout(gameState.timerId);
   gameState = createInitialState();
-  app.moves.textContent = '00';
+  app.pairs.textContent = `0/${cardsData.length}`;
+  updateBestDisplay();
   renderBoard(app.boardBox, deck);
 }
 
@@ -258,6 +259,7 @@ function handleMatch() {
   gameState.firstCard = null;
   gameState.secondCard = null;
   gameState.pairsFound++;
+  app.pairs.textContent = `${gameState.pairsFound}/${cardsData.length}`;
   if (gameState.pairsFound === cardsData.length) handleWin();
 }
 
@@ -295,6 +297,7 @@ function addResult(moves) {
 
 function handleWin() {
   addResult(gameState.movesMade);
+  updateBestDisplay();
   showWinModal(gameState.movesMade);
 }
 
@@ -486,6 +489,21 @@ function showLeaderboardModal() {
 
   attachModalAutoClose(dialog);
   openModal(dialog);
+}
+
+function getBestResult() {
+  const results = loadResults();
+  if (!results.length) return null;
+  return results.reduce((best, current) =>
+    current.moves < best.moves || (current.moves === best.moves && current.time < best.time)
+      ? current
+      : best,
+  );
+}
+
+function updateBestDisplay() {
+  const best = getBestResult();
+  app.best.textContent = best ? String(best.moves).padStart(2, '0') : '—';
 }
 
 const app = generatePage();

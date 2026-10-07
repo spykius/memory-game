@@ -1,5 +1,6 @@
 const SPRITE_PATH = './assets/svg/sprite.svg';
-const TIMER_DELAY = 1000;
+const TIMER_DELAY = 1100;
+const LOCAL_STORAGE_KEY = 'leaderboard';
 const cardsData = [
   { id: 'bash', name: 'Bash' },
   { id: 'nodejs', name: 'Node.js' },
@@ -195,9 +196,11 @@ function generatePage() {
   const page = createCustomElement('div', { classes: ['page'] });
   const main = createMain();
   page.append(createHeader(), main.element);
-  document.body.append(page);
 
-  return { ...main.values };
+  const modalsRoot = createCustomElement('div', { attrs: { id: 'modals-root' } });
+  document.body.append(page, modalsRoot);
+
+  return { ...main.values, modalsRoot };
 }
 
 function createCardsForBoard() {
@@ -255,7 +258,7 @@ function handleMatch() {
   gameState.firstCard = null;
   gameState.secondCard = null;
   gameState.pairsFound++;
-  if (gameState.pairsFound === cardsData.length) startGame(app);
+  if (gameState.pairsFound === cardsData.length) handleWin();
 }
 
 function handleMismatch() {
@@ -268,6 +271,31 @@ function handleMismatch() {
     gameState.isBoardLocked = false;
     gameState.timerId = null;
   }, TIMER_DELAY);
+}
+
+function loadResults() {
+  try {
+    const data = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.warn(`Can't read results:`, error);
+    return [];
+  }
+}
+
+function addResult(moves) {
+  const results = loadResults();
+  results.push({ moves, time: Date.now() });
+
+  results.sort((a, b) => a.moves - b.moves || a.time - b.time);
+  const top = results.slice(0, 10);
+
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(top));
+}
+
+function handleWin() {
+  addResult(gameState.movesMade);
+  showWinModal(gameState.movesMade);
 }
 
 function handleBoardClick(e) {
@@ -292,10 +320,185 @@ function handleBoardClick(e) {
   }
 }
 
+function handleButtonClick(e) {
+  const actionButton = e.target.closest('[data-action]');
+  if (!actionButton) return;
+  const action = buttonActions[actionButton.dataset.action];
+  if (!action) return;
+  action();
+}
+
+function createModal({ title, content, actions = [] }) {
+  const dialog = createCustomElement('dialog', { classes: ['modal'] });
+
+  if (title) {
+    dialog.append(createCustomElement('h2', { text: title, classes: ['modal__title'] }));
+  }
+
+  if (content) {
+    if (typeof content === 'string') {
+      dialog.append(createCustomElement('p', { text: content, classes: ['modal__message'] }));
+    } else {
+      dialog.append(content);
+    }
+  }
+
+  if (actions.length) {
+    const actionsBox = createCustomElement('div', { classes: ['modal__actions'] });
+    actionsBox.append(...actions);
+    dialog.append(actionsBox);
+  }
+
+  return dialog;
+}
+
+function openModal(dialog) {
+  if (!dialog.isConnected) app.modalsRoot.append(dialog);
+  dialog.showModal();
+  updateBodyScrollLock();
+}
+
+function closeModal(dialog) {
+  if (dialog.open) dialog.close();
+}
+
+function attachModalAutoClose(dialog) {
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) closeModal(dialog);
+  });
+
+  dialog.addEventListener(
+    'close',
+    () => {
+      dialog.remove();
+      updateBodyScrollLock();
+    },
+    { once: true },
+  );
+}
+
+function updateBodyScrollLock() {
+  const hasOpenDialog = document.querySelector('dialog[open]') !== null;
+  document.body.classList.toggle('modal-open', hasOpenDialog);
+}
+
+function createModalButton(text, { primary = false, onClick } = {}) {
+  const button = createCustomElement('button', {
+    text,
+    classes: ['modal__button', ...(primary ? ['modal__button--primary'] : [])],
+    attrs: { type: 'button' },
+  });
+  if (onClick) button.addEventListener('click', onClick);
+  return button;
+}
+
+function showWinModal(moves) {
+  const movesDisplay = createCustomElement('strong', {
+    text: moves.toString().padStart(2, '0'),
+    classes: ['modal__moves'],
+  });
+
+  const dialog = createModal({
+    title: 'You win!',
+    content: movesDisplay,
+    actions: [
+      createModalButton('New game', {
+        primary: true,
+        onClick: () => {
+          closeModal(dialog);
+          startGame();
+        },
+      }),
+      createModalButton('Close', {
+        onClick: () => closeModal(dialog),
+      }),
+    ],
+  });
+
+  attachModalAutoClose(dialog);
+  openModal(dialog);
+}
+
+function formatDate(timestamp) {
+  const d = new Date(timestamp);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+}
+
+function createLeaderboardTable(results) {
+  if (!results.length) {
+    return createCustomElement('p', {
+      text: 'No results',
+      classes: ['leaderboard__empty'],
+    });
+  }
+
+  const table = createCustomElement('table', { classes: ['leaderboard'] });
+
+  const thead = createCustomElement('thead');
+  const headRow = createCustomElement('tr');
+  ['#', 'Moves', 'Date'].forEach((label) => {
+    headRow.append(createCustomElement('th', { text: label }));
+  });
+  thead.append(headRow);
+
+  const tbody = createCustomElement('tbody');
+  results.forEach((result, index) => {
+    const row = createCustomElement('tr');
+
+    row.append(
+      createCustomElement('td', {
+        text: String(index + 1),
+        classes: ['leaderboard__place'],
+      }),
+      createCustomElement('td', {
+        text: String(result.moves).padStart(2, '0'),
+        classes: ['leaderboard__moves'],
+      }),
+      createCustomElement('td', {
+        text: formatDate(result.time),
+        classes: ['leaderboard__date'],
+      }),
+    );
+
+    tbody.append(row);
+  });
+
+  table.append(thead, tbody);
+  return table;
+}
+
+function showLeaderboardModal() {
+  const table = createLeaderboardTable(loadResults());
+
+  const dialog = createModal({
+    title: 'Leaderboard',
+    content: table,
+    actions: [
+      createModalButton('Close', {
+        primary: true,
+        onClick: () => closeModal(dialog),
+      }),
+    ],
+  });
+
+  attachModalAutoClose(dialog);
+  openModal(dialog);
+}
+
 const app = generatePage();
 
 let gameState = createInitialState();
 
 app.boardBox.addEventListener('click', handleBoardClick);
+
+const buttonActions = {
+  'new-game': startGame,
+  leaderboard: showLeaderboardModal,
+};
+
+document.body.addEventListener('click', handleButtonClick);
 
 startGame();

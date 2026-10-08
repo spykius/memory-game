@@ -227,6 +227,7 @@ function startGame() {
   const deck = shuffle(createCardsForBoard());
   clearTimeout(gameState.timerId);
   gameState = createInitialState();
+  app.moves.textContent = '00';
   app.pairs.textContent = `0/${cardsData.length}`;
   updateBestDisplay();
   renderBoard(app.boardBox, deck);
